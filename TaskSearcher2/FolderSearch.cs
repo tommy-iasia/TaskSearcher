@@ -7,9 +7,9 @@ namespace TaskSearcher2
         public static void Run()
         {
             Console.Write("Keyword? ");
-            var name = Console.ReadLine();
+            var targetName = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(targetName))
             {
                 Console.Error.WriteLine("Keyword is not provided");
                 return;
@@ -21,11 +21,12 @@ namespace TaskSearcher2
                 || "y".Equals(skipText, StringComparison.OrdinalIgnoreCase)
                 || "true".Equals(skipText, StringComparison.OrdinalIgnoreCase);
 
-            Console.WriteLine($"Start folder search for {name} {(skipValue ? "with" : "without")} skipping special folders");
+            Console.WriteLine($"Start folder search for {targetName} {(skipValue ? "with" : "without")} skipping special folders");
 
-            IEnumerable<string> currentPaths = Directory
+            var currentPaths = Directory
                 .EnumerateDirectories(TasksFolder.Path)
-                .OrderByDescending(t => t);
+                .OrderByDescending(t => t)
+                .ToList();
 
             var level = 0;
 
@@ -38,7 +39,8 @@ namespace TaskSearcher2
                 {
                     ProgressConsole.Current($"L{level + 1}: {currentPath}");
 
-                    if (currentPath.Contains(name, StringComparison.OrdinalIgnoreCase))
+                    var currentName = Path.GetFileName(currentPath);
+                    if (currentName.Contains(targetName, StringComparison.OrdinalIgnoreCase))
                     {
                         using (new ColorConsoleScope(ConsoleColor.Yellow))
                         {
@@ -48,19 +50,34 @@ namespace TaskSearcher2
                     else
                     {
                         if (!skipValue
-                            || !SkipNames.Contains(currentPath))
+                            || !SkipNames.Contains(currentName))
                         {
                             nextablePaths.Add(currentPath);
                         }
                     }
                 }
 
-                currentPaths = nextablePaths
-                    .SelectMany(path => Directory.EnumerateDirectories(path));
+                currentPaths.Clear();
+                foreach (var nextablePath in nextablePaths)
+                {
+                    try
+                    {
+                        var innerPaths = Directory.EnumerateDirectories(nextablePath);
+                        currentPaths.AddRange(innerPaths);
+                    }
+                    catch
+                    {
+                        using (new ColorConsoleScope(ConsoleColor.Gray))
+                        {
+                            ProgressConsole.Line($"L{level + 1}: Fail to dive into {nextablePath}");
+                        }
+                    }
+                }
+
                 level++;
             }
 
-            ProgressConsole.Line("Finished search");
+            ProgressConsole.Line($"Finished search at L{level + 1}");
         }
 
         public static string[] SkipNames { get; } = new[]

@@ -1,11 +1,10 @@
-﻿using System.Text;
-using TaskSearcher2.Utilities;
+﻿using TaskSearcher2.Utilities;
 
 namespace TaskSearcher2
 {
     internal static class TextSearch
     {
-        public static void Run()
+        public static async Task RunAsync()
         {
             Console.Write("Text? ");
             var targetText = Console.ReadLine();
@@ -32,9 +31,10 @@ namespace TaskSearcher2
                 + $"special folders {(skipFolderValue ? "skipped" : "kept")} and "
                 + $"special extensions {(skipExtensionValue ? "skipped" : "kept")}");
 
-            IEnumerable<string> currentFolders = Directory
+            var currentFolders = Directory
                 .EnumerateDirectories(TasksFolder.Path)
-                .OrderByDescending(t => t);
+                .OrderByDescending(t => t)
+                .ToList();
 
             var level = 0;
 
@@ -45,40 +45,72 @@ namespace TaskSearcher2
 
                 foreach (var currentFolder in currentFolders)
                 {
-                    var filePaths = Directory.EnumerateFiles(currentFolder);
-                    foreach (var filePath in filePaths)
+                    var currentFolderName = Path.GetFileName(currentFolder);
+                    if (!skipFolderValue
+                        || !FolderSearch.SkipNames.Contains(currentFolderName))
                     {
-                        if (skipExtensionValue
-                            && SkipExtensions.Any(extension => filePath.EndsWith(extension)))
-                        {
-                            continue;
-                        }
+                        ProgressConsole.Current($"L{level + 1}: {currentFolder}");
 
-                        ProgressConsole.Current($"L{level + 1}: {filePath}");
-
-                        var fileText = File.ReadAllText(filePath);
-                        if (fileText.Contains(targetText, StringComparison.OrdinalIgnoreCase))
+                        var filePaths = Directory.EnumerateFiles(currentFolder);
+                        foreach (var filePath in filePaths)
                         {
-                            using (new ColorConsoleScope(ConsoleColor.Yellow))
+                            if (skipExtensionValue
+                                && SkipExtensions.Any(extension => filePath.EndsWith(extension)))
                             {
-                                ProgressConsole.Line(filePath);
+                                continue;
+                            }
+
+                            ProgressConsole.Current($"L{level + 1}: {filePath}");
+
+                            string fileText;
+                            try
+                            {
+                                fileText = await File.ReadAllTextAsync(filePath);
+                            }
+                            catch
+                            {
+                                using (new ColorConsoleScope(ConsoleColor.Gray))
+                                {
+                                    ProgressConsole.Line($"L{level + 1}: fail to read {filePath}");
+                                }
+
+                                continue;
+                            }
+
+                            if (fileText.Contains(targetText, StringComparison.OrdinalIgnoreCase))
+                            {
+                                using (new ColorConsoleScope(ConsoleColor.Yellow))
+                                {
+                                    ProgressConsole.Line(filePath);
+                                }
                             }
                         }
-                    }
 
-                    if (!skipFolderValue
-                        || !FolderSearch.SkipNames.Contains(currentFolder))
-                    {
                         nextableFolders.Add(currentFolder);
                     }
                 }
 
-                currentFolders = nextableFolders
-                    .SelectMany(path => Directory.EnumerateDirectories(path));
+                currentFolders.Clear();
+                foreach (var nextableFolder in nextableFolders)
+                {
+                    try
+                    {
+                        var innerFolders = Directory.EnumerateDirectories(nextableFolder);
+                        currentFolders.AddRange(innerFolders);
+                    }
+                    catch
+                    {
+                        using (new ColorConsoleScope(ConsoleColor.Gray))
+                        {
+                            ProgressConsole.Line($"L{level + 1}: Fail to dive into {nextableFolder}");
+                        }
+                    }
+                }
+
                 level++;
             }
 
-            ProgressConsole.Line("Finished search");
+            ProgressConsole.Line($"Finished search at L{level + 1}");
         }
 
         private static string[] SkipExtensions { get; } = new[]

@@ -7,9 +7,9 @@ namespace TaskSearcher2
         public static void Run()
         {
             Console.Write("Keyword? ");
-            var name = Console.ReadLine();
+            var targetName = Console.ReadLine();
 
-            if (string.IsNullOrWhiteSpace(name))
+            if (string.IsNullOrWhiteSpace(targetName))
             {
                 Console.Error.WriteLine("Keyword is not provided");
                 return;
@@ -21,11 +21,12 @@ namespace TaskSearcher2
                 || "y".Equals(skipText, StringComparison.OrdinalIgnoreCase)
                 || "true".Equals(skipText, StringComparison.OrdinalIgnoreCase);
 
-            Console.WriteLine($"Start file search for {name} {(skipValue ? "with" : "without")} skipping special folders");
+            Console.WriteLine($"Start file search for {targetName} {(skipValue ? "with" : "without")} skipping special folders");
 
-            IEnumerable<string> currentFolders = Directory
+            var currentFolders = Directory
                 .EnumerateDirectories(TasksFolder.Path)
-                .OrderByDescending(t => t);
+                .OrderByDescending(t => t)
+                .ToList();
 
             var level = 0;
 
@@ -36,33 +37,50 @@ namespace TaskSearcher2
 
                 foreach (var currentFolder in currentFolders)
                 {
-                    ProgressConsole.Current($"L{level + 1}: {currentFolder}");
-
-                    var files = Directory.EnumerateFiles(currentFolder);
-                    foreach (var file in files)
+                    var currentFolderName = Path.GetFileName(currentFolder);
+                    if (!skipValue
+                        || !FolderSearch.SkipNames.Contains(currentFolderName))
                     {
-                        if (file.Contains(name, StringComparison.OrdinalIgnoreCase))
+                        ProgressConsole.Current($"L{level + 1}: {currentFolder}");
+
+                        var filePaths = Directory.EnumerateFiles(currentFolder);
+                        foreach (var filePath in filePaths)
                         {
-                            using (new ColorConsoleScope(ConsoleColor.Yellow))
+                            var fileName = Path.GetFileName(filePath);
+                            if (fileName.Contains(targetName, StringComparison.OrdinalIgnoreCase))
                             {
-                                ProgressConsole.Line(currentFolder);
+                                using (new ColorConsoleScope(ConsoleColor.Yellow))
+                                {
+                                    ProgressConsole.Line(filePath);
+                                }
                             }
                         }
-                    }
 
-                    if (!skipValue
-                        || !FolderSearch.SkipNames.Contains(currentFolder))
-                    {
                         nextableFolders.Add(currentFolder);
                     }
                 }
 
-                currentFolders = nextableFolders
-                    .SelectMany(path => Directory.EnumerateDirectories(path));
+                currentFolders.Clear();
+                foreach (var nextableFolder in nextableFolders)
+                {
+                    try
+                    {
+                        var innerFolders = Directory.EnumerateDirectories(nextableFolder);
+                        currentFolders.AddRange(innerFolders);
+                    }
+                    catch
+                    {
+                        using (new ColorConsoleScope(ConsoleColor.Gray))
+                        {
+                            ProgressConsole.Line($"L{level + 1}: Fail to dive into {nextableFolder}");
+                        }
+                    }
+                }
+
                 level++;
             }
 
-            ProgressConsole.Line("Finished search");
+            ProgressConsole.Line($"Finished search at L{level + 1}");
         }
     }
 }

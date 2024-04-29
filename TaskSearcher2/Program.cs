@@ -8,34 +8,32 @@ Console.WriteLine("3. File");
 Console.WriteLine("4. Text");
 
 Console.Write("What to search? ");
-string? typeText = Console.ReadLine();
+var text = Console.ReadLine() ?? "";
 
-if (!int.TryParse(typeText, out var typeValue))
+switch (text.Trim().ToLower())
 {
-    Console.Error.WriteLine($"{typeText} is not a number");
-    return;
-}
-
-switch (typeValue)
-{
-    case 1:
-        await JiraSearch.Run();
+    case "1":
+    case "jira":
+        await JiraSearch.RunAsync();
         break;
 
-    case 2:
+    case "2":
+    case "folder":
         FolderSearch.Run();
         break;
 
-    case 3:
+    case "3":
+    case "file":
         FileSearch.Run();
         break;
 
-    case 4:
-        TextSearch.Run();
+    case "4":
+    case "text":
+        await TextSearch.RunAsync();
         break;
 
     default:
-        Console.Error.WriteLine($"{typeValue} is invalid");
+        Console.Error.WriteLine($"{text} is invalid");
         return;
 }
 

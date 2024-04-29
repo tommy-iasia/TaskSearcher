@@ -4,7 +4,7 @@ namespace TaskSearcher2
 {
     public static class JiraSearch
     {
-        public static async Task Run()
+        public static async Task RunAsync()
         {
             Console.Write("JIRA code? ");
             string? code = Console.ReadLine();
