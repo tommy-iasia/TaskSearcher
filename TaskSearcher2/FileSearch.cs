@@ -2,7 +2,7 @@
 
 namespace TaskSearcher2
 {
-    internal static class FolderSearch
+    internal static class FileSearch
     {
         public static void Run()
         {
@@ -21,56 +21,48 @@ namespace TaskSearcher2
                 || "y".Equals(skipText, StringComparison.OrdinalIgnoreCase)
                 || "true".Equals(skipText, StringComparison.OrdinalIgnoreCase);
 
-            Console.WriteLine($"Start folder search for {name} {(skipValue ? "with" : "without")} skipping special folders");
+            Console.WriteLine($"Start file search for {name} {(skipValue ? "with" : "without")} skipping special folders");
 
-            IEnumerable<string> currentPaths = Directory
+            IEnumerable<string> currentFolders = Directory
                 .EnumerateDirectories(TasksFolder.Path)
                 .OrderByDescending(t => t);
 
             var level = 0;
 
-            while (currentPaths.Any()
+            while (currentFolders.Any()
                 && level <= 100)
             {
-                var nextablePaths = new List<string>();
+                var nextableFolders = new List<string>();
 
-                foreach (var currentPath in currentPaths)
+                foreach (var currentFolder in currentFolders)
                 {
-                    ProgressConsole.Current($"L{level + 1}: {currentPath}");
+                    ProgressConsole.Current($"L{level + 1}: {currentFolder}");
 
-                    if (currentPath.Contains(name, StringComparison.OrdinalIgnoreCase))
+                    var files = Directory.EnumerateFiles(currentFolder);
+                    foreach (var file in files)
                     {
-                        using (new ColorConsoleScope(ConsoleColor.Yellow))
+                        if (file.Contains(name, StringComparison.OrdinalIgnoreCase))
                         {
-                            ProgressConsole.Line(currentPath);
+                            using (new ColorConsoleScope(ConsoleColor.Yellow))
+                            {
+                                ProgressConsole.Line(currentFolder);
+                            }
                         }
                     }
-                    else
+
+                    if (!skipValue
+                        || !FolderSearch.SkipNames.Contains(currentFolder))
                     {
-                        if (!skipValue
-                            || !SkipNames.Contains(currentPath))
-                        {
-                            nextablePaths.Add(currentPath);
-                        }
+                        nextableFolders.Add(currentFolder);
                     }
                 }
 
-                currentPaths = nextablePaths
+                currentFolders = nextableFolders
                     .SelectMany(path => Directory.EnumerateDirectories(path));
                 level++;
             }
 
             ProgressConsole.Line("Finished search");
         }
-
-        public static string[] SkipNames { get; } = new[]
-        {
-            ".svn", ".git",
-            "bin", "obj",
-            "classes", "test-classes",
-            "node_modules", "dist",
-            "iAsiaLogs",
-            ".idea",
-        };
     }
 }

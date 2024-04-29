@@ -4,6 +4,8 @@ Console.WriteLine("Task Searcher");
 
 Console.WriteLine("1. JIRA");
 Console.WriteLine("2. Folder");
+Console.WriteLine("3. File");
+Console.WriteLine("4. Text");
 
 Console.Write("What to search? ");
 string? typeText = Console.ReadLine();
@@ -22,6 +24,14 @@ switch (typeValue)
 
     case 2:
         FolderSearch.Run();
+        break;
+
+    case 3:
+        FileSearch.Run();
+        break;
+
+    case 4:
+        TextSearch.Run();
         break;
 
     default:
